@@ -1,0 +1,182 @@
+AUDITMIND 360 — PROJECT AUDIT REPORT
+Review date: 2026-11-03
+
+EXECUTIVE SUMMARY
+-----------------
+AuditMind 360 is a React/TypeScript audit workspace backed by an Express API,
+Socket.IO events, JWT authentication, and a JSON-file repository. It includes
+transaction review, reconciliation, investigation workflows, evidence/OCR,
+forensic analysis, SOX controls, audit logs, reporting, and role-based views.
+
+The project is suitable for local demonstration and workflow prototyping. It
+should not be exposed to real users or sensitive multi-tenant data until the
+authentication defaults, socket event exposure, object-level authorization,
+and role enforcement issues below are addressed. The current repository uses
+simulated/sample data and a local JSON persistence layer rather than a
+production database.
+
+SCOPE AND LIMITATIONS
+--------------------
+Reviewed the frontend application, API routes/controllers, authentication and
+authorization code, Socket.IO manager, JSON repository, configuration,
+documentation, and test suite source.
+
+This was a source review, not a penetration test or external dependency audit.
+The test suite was not run: it writes audit events and changes records in the
+shared .data/auditmind360.json store, so running it could alter local app data.
+
+PROJECT STRENGTHS
+-----------------
+- Clear separation between frontend views, API controllers, services, and a
+  repository layer.
+- TypeScript is used across the frontend and backend.
+- The application has concrete workflows for reconciliation, cases, evidence,
+  remediation, and control testing.
+- The test source covers authentication, role permissions, reconciliation,
+  three-way matching, case transitions, forensic analysis, and workpaper
+  generation.
+- Role checks and organization filters exist on several list/API endpoints.
+
+PRIORITIZED FINDINGS
+--------------------
+
+P1 — Socket events are delivered to every connected client
+Evidence:
+  server/src/sockets/socket.manager.ts, lines 6-21 and 41-45
+  server/src/controllers/api.controller.ts, line 477
+The socket middleware accepts clients without a valid token. broadcast()
+first emits to the organization room, then emits the same event globally.
+The evidence-upload event includes the full document object, including OCR
+text. This can disclose audit evidence and other organization-specific event
+payloads to unrelated or unauthenticated socket clients.
+Recommendation:
+  Require a valid authenticated socket session; remove the global io.emit()
+  path; emit only to the authorized organization room; send the minimum event
+  fields needed by clients rather than full evidence or case objects.
+
+P1 — Demo credentials and automatic login are enabled in application code
+Evidence:
+  server/src/repositories/database.ts, line 91
+  src/context/AuthContext.tsx, lines 36-46 and 82
+  server/src/routes/api.routes.ts, line 9
+Seeded users share a static demonstration password. On a browser without a
+stored token, the frontend automatically logs in as a Chief Auditor using that
+password. The public demo-account endpoint returns account identities and
+roles. If these demo paths remain enabled in a reachable deployment, users
+can obtain a privileged demo session without a normal sign-in flow.
+Recommendation:
+  Make demo seeding, demo account listing, and automatic login development-only.
+  Require secure account provisioning and unique credentials for production;
+  add login rate limiting and account-abuse monitoring.
+
+P1 — A predictable fallback JWT signing secret is configured
+Evidence:
+  server/src/config/index.ts, line 6
+When JWT_SECRET is not set, the application uses a fixed source-code fallback.
+Tokens signed with that known fallback are not suitable for authenticating a
+production deployment.
+Recommendation:
+  Require a high-entropy JWT_SECRET in production and fail startup if it is
+  absent. Rotate any secret that may have been used outside local development.
+  Consider validating token issuer/audience and account status on requests.
+
+P1 — Object-level and organization authorization is inconsistent
+Evidence:
+  server/src/controllers/api.controller.ts, lines 198-213 and 246-253
+  server/src/routes/api.routes.ts, lines 26-31
+List endpoints commonly filter by organization, but finding detail/AI analysis
+and case detail retrieve records by ID without checking the authenticated
+user's organization or department. Several mutation services also fetch and
+update records by ID. This is an access-control gap if the application is
+used with multiple organizations or restricted departments.
+Recommendation:
+  Scope every record lookup and mutation to the authenticated user's
+  organization, and enforce department scope where required. Return the same
+  not-found response for inaccessible records to avoid exposing their
+  existence.
+
+P1 — Case and corrective-action changes do not consistently enforce role rules
+Evidence:
+  server/src/routes/api.routes.ts, lines 33-38
+  server/src/controllers/api.controller.ts, lines 324-366 and 378-422
+Case transition/note and corrective-action update routes require authentication
+but do not apply the role restrictions used on other write routes. The case
+workflow checks whether a state transition is structurally valid, but does not
+check whether the caller's role is allowed to perform it. The permission matrix
+exists, but these paths do not consistently use it.
+Recommendation:
+  Define an explicit role/permission policy for each write operation and
+  enforce it in middleware or service code, in addition to organization and
+  department ownership checks. Add negative tests for unauthorized roles.
+
+P2 — JSON persistence is not production-grade and can report success on failure
+Evidence:
+  server/src/repositories/database.ts, lines 24-31 and 74-86
+The complete dataset is loaded into memory and synchronously rewritten as one
+JSON file. Disk-write errors are logged and swallowed, allowing callers to
+continue and potentially report a successful change even if persistence
+failed. The store has no transaction, locking, atomic-write, or multi-instance
+coordination guarantees.
+Recommendation:
+  Use a transactional database for production. Until then, use atomic writes,
+  propagate persistence failures, and document that only one server process
+  and non-sensitive demo data are supported.
+
+P2 — Local audit data is not excluded by the current ignore rules
+Evidence:
+  server/src/repositories/database.ts, lines 24-25
+  .gitignore
+The repository writes audit records, OCR text, users, and financial sample
+records to .data/auditmind360.json. The checked-in ignore rules do not exclude
+the .data directory. If this workspace is later placed under version control,
+local records could be committed accidentally.
+Recommendation:
+  Add .data/ to ignore rules, keep real audit data out of source control, and
+  define retention and access controls for stored evidence.
+
+P2 — Fresh dependency installation has a peer-version conflict
+Evidence:
+  package.json
+The Vite 8 dependency range and the declared esbuild 0.25 development
+dependency produced an npm ERESOLVE conflict during this review. Dependencies
+installed only with legacy peer resolution, which can hide an incompatible
+dependency set.
+Recommendation:
+  Align esbuild with the version range required by the selected Vite release,
+  regenerate the lockfile with standard npm resolution, and verify a clean
+  install in CI.
+
+P2 — Setup documentation does not match the current runtime configuration
+Evidence:
+  README.md, lines 11-20
+  server/src/config/index.ts, lines 1-12
+The README directs users to .env.local, while the server uses dotenv's default
+.env lookup. It also describes the project as an AI Studio app and does not
+explain the JSON data store, demo account behavior, or safe production
+configuration.
+Recommendation:
+  Update setup instructions to match the server's actual environment loading,
+  identify required production variables, and clearly label demo-only data and
+  behavior.
+
+VALIDATION
+----------
+- TypeScript check: npm run lint — passed during the review.
+- Production frontend build: npm run build — passed during the review.
+- Build output included a warning that the main JavaScript chunk exceeds
+  500 kB; consider code splitting for load-time performance.
+- Automated tests were inspected but not run, because the test suite mutates
+  the shared local JSON data store.
+
+SUGGESTED REMEDIATION ORDER
+--------------------------
+1. Remove global Socket.IO broadcasts and require authenticated organization
+   membership for event delivery.
+2. Disable demo credentials, public demo-account access, and automatic login
+   outside development.
+3. Require a production JWT secret and verify users remain active.
+4. Add organization/department checks and role enforcement to all read and
+   write-by-ID routes.
+5. Exclude local data from version control and improve persistence guarantees.
+6. Resolve dependency peer versions, update setup docs, and add CI tests for
+   authorization boundaries and persistence failures.

@@ -40,18 +40,17 @@ mongoose.connection.on('reconnected', () => {
   console.info('[database] MongoDB connection restored.');
 });
 
-export async function connectDatabase(databaseName = config.mongoDbName): Promise<void> {
+export async function connectDatabase(databaseName?: string): Promise<void> {
   if (!config.mongoUri) {
     throw new Error('MONGODB_URI is required; server startup cancelled.');
   }
-  if (!config.mongoDbName) {
-    throw new Error('MONGODB_DB_NAME is required; server startup cancelled.');
-  }
 
   try {
-    await mongoose.connect(config.mongoUri, { dbName: databaseName });
+    const uriDatabase = config.mongoUri.match(/^mongodb(?:\+srv)?:\/\/[^/]+\/([^/?]+)/)?.[1];
+    const selectedDatabase = databaseName || uriDatabase || config.mongoDbName || 'student_placement';
+    await mongoose.connect(config.mongoUri, { dbName: selectedDatabase });
     await mongoose.connection.db?.admin().command({ ping: 1 });
-    console.info(`[database] Connected to MongoDB database "${databaseName}".`);
+    console.info(`[database] Connected to MongoDB database "${selectedDatabase}".`);
   } catch (error) {
     const diagnostic = getConnectionDiagnostic(error);
     console.error(`[database] ${diagnostic}`);

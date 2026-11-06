@@ -28,25 +28,11 @@ export const config = {
       role: 'SUPER_ADMIN' as const,
     },
     {
-      id: 'env_placement_coordinator',
-      email: getEnvValue('PLACEMENT_COORDINATOR_EMAIL').toLowerCase(),
-      password: getEnvValue('PLACEMENT_COORDINATOR_PASSWORD'),
-      name: 'Placement Coordinator',
-      role: 'CHIEF_AUDITOR' as const,
-    },
-    {
       id: 'env_faculty',
       email: getEnvValue('FACULTY_EMAIL', 'FACULTY_LOGIN_EMAIL').toLowerCase(),
       password: getEnvValue('FACULTY_LOGIN_PASSWORD'),
       name: 'Faculty',
-      role: 'FINANCIAL_AUDITOR' as const,
-    },
-    {
-      id: 'env_institution_admin',
-      email: getEnvValue('INSTITUTION_EMAIL').toLowerCase(),
-      password: getEnvValue('INSTITUTION_LOGIN_PASSWORD'),
-      name: getEnvValue('INSTITUTION_NAME') || 'Institution Administrator',
-      role: 'COMPLIANCE_OFFICER' as const,
+      role: 'FACULTY' as const,
     },
   ].filter(account => account.email && account.password),
 };

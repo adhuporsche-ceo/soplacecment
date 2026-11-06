@@ -73,6 +73,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'logs:view',
     'reports:export',
   ],
+  FACULTY: ['placement:students:read', 'placement:students:review'],
+  STUDENT: ['placement:profile:read', 'placement:profile:write'],
 };
 
 export class AuthService {

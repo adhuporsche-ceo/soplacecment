@@ -3,7 +3,9 @@ export type UserRole =
   | 'CHIEF_AUDITOR'
   | 'FINANCIAL_AUDITOR'
   | 'DEPARTMENT_MANAGER'
-  | 'COMPLIANCE_OFFICER';
+  | 'COMPLIANCE_OFFICER'
+  | 'FACULTY'
+  | 'STUDENT';
 
 export interface User {
   id: string;
@@ -12,6 +14,7 @@ export interface User {
   role: UserRole;
   organizationId: string;
   departmentId?: string;
+  studentId?: string;
   lastLoginAt?: string;
   isActive: boolean;
 }
@@ -389,4 +392,3 @@ export interface AuditWorkpaperPackage {
   signOffLeadAuditor: string;
   tamperProofSeal: string;
 }
-

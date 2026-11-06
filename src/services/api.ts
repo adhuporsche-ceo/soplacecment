@@ -20,21 +20,63 @@ import {
 
 const API_BASE = '/api/v1';
 
+export interface PlacementProfile {
+  userId: string;
+  sections: Record<string, Record<string, unknown>>;
+  status: 'DRAFT' | 'SUBMITTED';
+  submittedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubmittedStudent {
+  user: User;
+  profile: PlacementProfile;
+}
+
+export type JobApplicationStatus =
+  | 'SAVED'
+  | 'APPLIED'
+  | 'ASSESSMENT'
+  | 'INTERVIEW'
+  | 'OFFER'
+  | 'REJECTED'
+  | 'WITHDRAWN';
+
+export interface StudentJobApplication {
+  id: string;
+  userId: string;
+  companyName: string;
+  roleTitle: string;
+  status: JobApplicationStatus;
+  appliedOn?: string;
+  applicationUrl?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  student?: {
+    id: string;
+    name: string;
+    email: string;
+    studentId?: string;
+  };
+}
+
 class ApiService {
   private token: string | null = null;
   private socket: Socket | null = null;
 
   constructor() {
-    this.token = localStorage.getItem('auditmind_token');
+    this.token = localStorage.getItem('studentinsight_token');
   }
 
   public setToken(token: string | null) {
     this.token = token;
     if (token) {
-      localStorage.setItem('auditmind_token', token);
+      localStorage.setItem('studentinsight_token', token);
       this.reconnectSocket();
     } else {
-      localStorage.removeItem('auditmind_token');
+      localStorage.removeItem('studentinsight_token');
       if (this.socket) {
         this.socket.disconnect();
         this.socket = null;
@@ -79,8 +121,92 @@ class ApiService {
     return result;
   }
 
+  public async registerStudent(input: {
+    name: string;
+    email: string;
+    password: string;
+    studentId: string;
+  }): Promise<{ token: string; user: User }> {
+    const result = await this.request<{ token: string; user: User }>('/placement/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    this.setToken(result.token);
+    return result;
+  }
+
   public async getCurrentUser(): Promise<User> {
     return this.request<User>('/auth/me');
+  }
+
+  public async getPlacementProfile(): Promise<PlacementProfile> {
+    return this.request<PlacementProfile>('/placement/profile');
+  }
+
+  public async savePlacementSection(
+    section: string,
+    values: Record<string, unknown>,
+  ): Promise<PlacementProfile> {
+    return this.request<PlacementProfile>('/placement/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ section, values }),
+    });
+  }
+
+  public async submitPlacementProfile(): Promise<PlacementProfile> {
+    return this.request<PlacementProfile>('/placement/profile/submit', { method: 'POST' });
+  }
+
+  public async getJobApplications(): Promise<StudentJobApplication[]> {
+    return this.request<StudentJobApplication[]>('/placement/applications');
+  }
+
+  public async createJobApplication(
+    input: Omit<StudentJobApplication, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'student'>,
+  ): Promise<StudentJobApplication> {
+    return this.request<StudentJobApplication>('/placement/applications', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async updateJobApplication(
+    id: string,
+    input: Partial<Pick<StudentJobApplication, 'companyName' | 'roleTitle' | 'status' | 'appliedOn' | 'applicationUrl' | 'notes'>>,
+  ): Promise<StudentJobApplication> {
+    return this.request<StudentJobApplication>(`/placement/applications/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+  }
+
+  public async deleteJobApplication(id: string): Promise<void> {
+    await this.request<{ deleted: boolean }>(`/placement/applications/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  public async getFacultyJobApplications(): Promise<StudentJobApplication[]> {
+    return this.request<StudentJobApplication[]>('/placement/applications/faculty');
+  }
+
+  public async getSubmittedStudents(search = ''): Promise<SubmittedStudent[]> {
+    const query = new URLSearchParams({ search });
+    return this.request<SubmittedStudent[]>(`/placement/students?${query.toString()}`);
+  }
+
+  public async getSubmittedStudent(id: string): Promise<SubmittedStudent> {
+    return this.request<SubmittedStudent>(`/placement/students/${encodeURIComponent(id)}`);
+  }
+
+  public async getPlacementActivity(): Promise<Array<{
+    actorId: string;
+    actorRole: string;
+    studentId: string;
+    action: string;
+    timestamp: string;
+  }>> {
+    return this.request('/placement/activity');
   }
 
   // Analytics

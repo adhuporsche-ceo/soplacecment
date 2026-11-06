@@ -5,7 +5,6 @@ import {
   UploadCloud,
   CheckCircle,
   AlertTriangle,
-  Sparkles,
   FileSearch,
   Eye,
   ShieldCheck,

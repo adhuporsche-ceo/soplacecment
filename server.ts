@@ -1,15 +1,12 @@
 import express, { Request, Response, NextFunction } from 'express';
 import http from 'http';
-import { Server as SocketIOServer } from 'socket.io';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import apiRouter from './server/src/routes/api.routes.ts';
-import { SocketManager } from './server/src/sockets/socket.manager.ts';
 import { config } from './server/src/config/index.ts';
-import { connectDatabase, disconnectDatabase } from './server/src/config/database.ts';
+import { connectDatabase, disconnectDatabase, isDatabaseConnected } from './server/src/config/database.ts';
 import { db } from './server/src/repositories/database.ts';
-import { ForensicService } from './server/src/services/forensic.service.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,19 +18,9 @@ async function startServer() {
 
   await connectDatabase();
   await db.initialize();
-  await ForensicService.initialize();
 
   const app = express();
   const server = http.createServer(app);
-
-  // Initialize Socket.IO
-  const io = new SocketIOServer(server, {
-    cors: {
-      origin: '*',
-      methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
-    },
-  });
-  SocketManager.initialize(io);
 
   // Middleware
   app.use(express.json({ limit: '10mb' }));
@@ -52,10 +39,12 @@ async function startServer() {
   app.use('/api', apiRouter);
 
   // Health check endpoint
-  app.get('/health', (req: Request, res: Response) => {
-    res.json({
-      status: 'healthy',
-      app: 'AuditMind 360',
+  app.get('/health', (_req: Request, res: Response) => {
+    const databaseConnected = isDatabaseConnected();
+    res.status(databaseConnected ? 200 : 503).json({
+      status: databaseConnected ? 'healthy' : 'unavailable',
+      app: 'StudentInsight Placement Management',
+      database: databaseConnected ? 'connected' : 'disconnected',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     });
@@ -98,16 +87,16 @@ async function startServer() {
   }
 
   server.listen(port, '0.0.0.0', () => {
-    console.log(`[AuditMind 360] Server listening on http://0.0.0.0:${port}`);
+    console.log(`[StudentInsight] Server listening on http://0.0.0.0:${port}`);
   });
 
   const shutdown = (signal: string) => {
-    console.info(`[AuditMind 360] ${signal} received; closing server.`);
+    console.info(`[StudentInsight] ${signal} received; closing server.`);
     server.close(() => {
       void disconnectDatabase()
         .then(() => process.exit(0))
         .catch(() => {
-          console.error('[AuditMind 360] Database disconnect failed during shutdown.');
+          console.error('[StudentInsight] Database disconnect failed during shutdown.');
           process.exit(1);
         });
     });
@@ -119,7 +108,7 @@ async function startServer() {
 
 startServer().catch(err => {
   console.error(
-    'Failed to start AuditMind 360 server:',
+    'Failed to start StudentInsight:',
     err instanceof Error ? err.message : 'Unknown startup error',
   );
   process.exit(1);

@@ -55,7 +55,8 @@ class DatabaseRepository {
   private initialized = false;
 
   private collection(name: string) {
-    const collection = mongoose.connection.db?.collection<MongoRecord>(name);
+    const collectionName = name === 'users' ? 'placement_users' : name;
+    const collection = mongoose.connection.db?.collection<MongoRecord>(collectionName);
     if (!collection) throw new Error('MongoDB is not connected; repository access is unavailable.');
     return collection;
   }
@@ -95,58 +96,14 @@ class DatabaseRepository {
       throw new Error('MongoDB must be connected before initializing application data.');
     }
 
-    await this.collection('users').createIndex({ email: 1 }, { unique: true });
-
-    const migrations = this.collection('system_migrations');
-    const migrationId = 'auditmind-json-to-mongodb-v1';
-    const migrationCompleted = Boolean(await migrations.findOne({ _id: migrationId }));
-    let imported: Partial<DatabaseSchema> = {};
-    let seed: DatabaseSchema | undefined;
-    if (!migrationCompleted) {
-      if (fs.existsSync(DATA_FILE)) {
-        try {
-          imported = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8')) as Partial<DatabaseSchema>;
-        } catch {
-          throw new Error(`Could not read the legacy audit data at ${DATA_FILE}; migration was stopped to protect the source data.`);
-        }
-      } else {
-        imported = this.generateInitialSeedData();
-      }
-      seed = this.generateInitialSeedData();
-    }
-
-    const collectionNames: Array<keyof DatabaseSchema> = [
-      'organizations', 'departments', 'users', 'transactions', 'vendors',
-      'purchaseOrders', 'invoices', 'goodsReceipts', 'inventoryAssets',
-      'findings', 'cases', 'evidenceDocuments', 'correctiveActions',
-      'notifications', 'auditLogs', 'soxControls',
-    ];
-
-    if (!migrationCompleted && seed) {
-      for (const name of collectionNames) {
-        const sourceRecords = imported[name];
-        if (sourceRecords !== undefined && !Array.isArray(sourceRecords)) {
-          throw new Error(`Legacy audit data collection "${name}" is not an array; migration was stopped.`);
-        }
-        const records = (sourceRecords || seed[name] || []) as unknown as Array<{ id: string; [key: string]: unknown }>;
-        const collection = this.collection(name);
-        if (records.length) {
-          await collection.bulkWrite(
-            records.map(record => ({
-              updateOne: {
-                filter: { _id: record.id },
-                update: { $setOnInsert: { ...record, _id: record.id } },
-                upsert: true,
-              },
-            })),
-            { ordered: true },
-          );
-        }
-      }
-    }
+    const users = this.collection('users');
+    await users.createIndex({ email: 1 }, { unique: true, name: 'unique_placement_user_email' });
+    await users.createIndex(
+      { studentId: 1 },
+      { unique: true, sparse: true, name: 'unique_student_id' },
+    );
 
     for (const account of config.loginAccounts) {
-      const users = this.collection('users');
       if (await users.findOne({ _id: account.id })) continue;
       const user: User = {
         id: account.id,
@@ -161,11 +118,6 @@ class DatabaseRepository {
       await users.insertOne({ ...user, _id: user.id });
     }
 
-    await migrations.updateOne(
-      { _id: migrationId },
-      { $setOnInsert: { appliedAt: new Date().toISOString(), source: fs.existsSync(DATA_FILE) ? 'legacy-json' : 'seed-data' } },
-      { upsert: true },
-    );
     this.initialized = true;
   }
 

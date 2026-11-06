@@ -7,7 +7,7 @@ import {
   FolderArchive,
   Clock,
   ArrowUpRight,
-  Sparkles,
+  Code2,
   TrendingUp,
 } from 'lucide-react';
 import {
@@ -79,7 +79,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             onClick={onNavigateToReconcile}
             className="px-3.5 py-1.5 text-xs font-medium text-white bg-sky-600 hover:bg-sky-700 rounded transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            <Code2 className="w-3.5 h-3.5" />
             <span>Execute Reconciliation Scan</span>
           </button>
         </div>

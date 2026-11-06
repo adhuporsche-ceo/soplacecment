@@ -36,6 +36,8 @@ const ROLE_LABELS: Record<UserRole, string> = {
   FINANCIAL_AUDITOR: 'Financial Auditor',
   DEPARTMENT_MANAGER: 'Department Manager',
   COMPLIANCE_OFFICER: 'Compliance Officer',
+  FACULTY: 'Faculty',
+  STUDENT: 'Student',
 };
 
 export const Header: React.FC<HeaderProps> = ({

@@ -1,6 +1,6 @@
 {
-  "name": "AuditMind 360",
-  "description": "Enterprise AI-powered audit intelligence platform for financial reconciliation, duplicate detection, invoice audits, and regulatory investigation workflows.",
+  "name": "StudentInsight Placement Management",
+  "description": "A secure student profile and placement management workspace for learners and faculty.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

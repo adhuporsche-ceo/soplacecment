@@ -7,6 +7,7 @@ interface AuthContextType {
   isLoading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
+  registerStudent: (input: { name: string; email: string; password: string; studentId: string }) => Promise<void>;
   logout: () => void;
   hasRole: (...roles: UserRole[]) => boolean;
 }
@@ -59,6 +60,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const registerStudent = async (input: {
+    name: string;
+    email: string;
+    password: string;
+    studentId: string;
+  }) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await api.registerStudent(input);
+      setUser(result.user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Account creation failed. Please try again.');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     api.setToken(null);
     setUser(null);
@@ -68,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasRole = (...roles: UserRole[]) => Boolean(user && roles.includes(user.role));
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, error, login, logout, hasRole }}>
+    <AuthContext.Provider value={{ user, isLoading, error, login, registerStudent, logout, hasRole }}>
       {children}
     </AuthContext.Provider>
   );
